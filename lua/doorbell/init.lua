@@ -1,0 +1,70 @@
+local M = {}
+
+local function open_float(lines)
+  local width = 60
+  local height = math.min(#lines + 2, 20)
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  -- Set content
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "filetype", "doorbell")
+
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    style = "minimal",
+    border = "rounded",
+    title = " Doorbell ",
+    title_pos = "center",
+  })
+
+  -- q or <Esc> closes
+  local opts = { noremap = true, silent = true, buffer = buf }
+  vim.keymap.set("n", "q", function() vim.api.nvim_win_close(win, true) end, opts)
+  vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true) end, opts)
+
+  -- <CR> opens PR in browser
+  vim.keymap.set("n", "<CR>", function()
+    local line = vim.api.nvim_get_current_line()
+    local url = line:match("https://%S+")
+    if url then
+      vim.fn.jobstart({ "open", url }) -- macOS; use "xdg-open" on Linux
+    end
+  end, opts)
+end
+
+function M.fetch()
+  open_float({ "Fetching PRs..." })
+
+  vim.fn.jobstart(
+    { "gh", "search", "prs", "--state", "open", "--review-requested", "@me",
+      "--json", "url,title,repository", "--jq",
+      '.[] | "\(.repository.nameWithOwner) | \(.title[:40]) | \(.url)"' },
+    {
+      stdout_buffered = true,
+      on_stdout = function(_, data)
+        if data and #data > 0 then
+          -- filter empty trailing lines
+          local lines = vim.tbl_filter(function(l) return l ~= "" end, data)
+          if #lines == 0 then lines = { "No PRs requesting your review." } end
+          vim.schedule(function() open_float(lines) end)
+        end
+      end,
+      on_stderr = function(_, data)
+        if data and data[1] ~= "" then
+          vim.schedule(function() open_float({ "Error: " .. table.concat(data, " ") }) end)
+        end
+      end,
+    }
+  )
+end
+
+function M.setup()
+  vim.api.nvim_create_user_command("Doorbell", M.fetch, {})
+end
+
+return M
