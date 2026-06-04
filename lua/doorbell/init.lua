@@ -51,7 +51,34 @@ local function open_float(lines)
   end, opts)
 end
 
+-- Returns nil if gh is usable, or a list of message lines explaining why not.
+local function preflight()
+  if vim.fn.executable("gh") ~= 1 then
+    return {
+      "GitHub CLI (gh) not found on PATH.",
+      "Install it: https://cli.github.com",
+    }
+  end
+
+  -- `gh auth status` exits non-zero when not logged in.
+  vim.fn.system({ "gh", "auth", "status" })
+  if vim.v.shell_error ~= 0 then
+    return {
+      "Not logged in to GitHub.",
+      "Run: gh auth login",
+    }
+  end
+
+  return nil
+end
+
 function M.fetch()
+  local problem = preflight()
+  if problem then
+    open_float(problem)
+    return
+  end
+
   open_float({ "Fetching PRs..." })
 
   vim.fn.jobstart(
