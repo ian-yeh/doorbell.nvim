@@ -1,6 +1,13 @@
 local M = {}
 
+local current_win
+
 local function open_float(lines)
+  -- Replace any existing Doorbell float so windows don't stack
+  if current_win and vim.api.nvim_win_is_valid(current_win) then
+    vim.api.nvim_win_close(current_win, true)
+  end
+
   local width = 60
   local height = math.min(#lines + 2, 20)
   local buf = vim.api.nvim_create_buf(false, true)
@@ -21,11 +28,18 @@ local function open_float(lines)
     title = " Doorbell ",
     title_pos = "center",
   })
+  current_win = win
 
   -- q or <Esc> closes
   local opts = { noremap = true, silent = true, buffer = buf }
-  vim.keymap.set("n", "q", function() vim.api.nvim_win_close(win, true) end, opts)
-  vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true) end, opts)
+  local function close()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+    current_win = nil
+  end
+  vim.keymap.set("n", "q", close, opts)
+  vim.keymap.set("n", "<Esc>", close, opts)
 
   -- <CR> opens PR in browser
   vim.keymap.set("n", "<CR>", function()
@@ -43,7 +57,7 @@ function M.fetch()
   vim.fn.jobstart(
     { "gh", "search", "prs", "--state", "open", "--review-requested", "@me",
       "--json", "url,title,repository", "--jq",
-      '.[] | "\(.repository.nameWithOwner) | \(.title[:40]) | \(.url)"' },
+      [[.[] | "\(.repository.nameWithOwner) | \(.title[:40]) | \(.url)"]] },
     {
       stdout_buffered = true,
       on_stdout = function(_, data)
