@@ -28,6 +28,27 @@ use "ian-yeh/doorbell.nvim"
 
 The plugin self-registers its command on load, so no `setup()` call is required.
 
+## Configuration
+
+`setup()` is optional. Call it to change which PRs Doorbell lists:
+
+```lua
+require("doorbell").setup({
+  query = "review_requested", -- default
+})
+```
+
+`query` accepts:
+
+| Value              | PRs shown                          |
+| ------------------ | ---------------------------------- |
+| `review_requested` | requesting your review (default)   |
+| `authored`         | you opened                         |
+| `assigned`         | assigned to you                    |
+| `mentions`         | you're mentioned in               |
+
+An unknown value warns and falls back to the default.
+
 ## Usage
 
 Run the command:

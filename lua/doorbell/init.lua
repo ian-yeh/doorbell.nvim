@@ -7,6 +7,15 @@ local open_float, render, render_entries, query
 local WIDTH = 60
 local ns = vim.api.nvim_create_namespace("doorbell")
 
+local QUERIES = {
+  review_requested = "--review-requested",
+  authored = "--author",
+  assigned = "--assignee",
+  mentions = "--mentions",
+}
+
+local config = { query = "review_requested" }
+
 vim.api.nvim_set_hl(0, "DoorbellRepo", { link = "Comment", default = true })
 vim.api.nvim_set_hl(0, "DoorbellTitle", { bold = true, default = true })
 
@@ -132,8 +141,9 @@ end
 function query()
   render({ "Fetching PRs..." })
 
+  local flag = QUERIES[config.query] or QUERIES.review_requested
   vim.fn.jobstart(
-    { "gh", "search", "prs", "--state", "open", "--review-requested", "@me",
+    { "gh", "search", "prs", "--state", "open", flag, "@me",
       "--json", "url,title,repository" },
     {
       stdout_buffered = true,
@@ -169,7 +179,18 @@ function M.fetch()
   query()
 end
 
-function M.setup()
+function M.setup(opts)
+  opts = opts or {}
+  if opts.query ~= nil then
+    if QUERIES[opts.query] then
+      config.query = opts.query
+    else
+      vim.notify(
+        ("doorbell: unknown query %q, falling back to %q"):format(
+          tostring(opts.query), config.query),
+        vim.log.levels.WARN)
+    end
+  end
   vim.api.nvim_create_user_command("Doorbell", M.fetch, {})
 end
 
