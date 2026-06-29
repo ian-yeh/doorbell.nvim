@@ -30,6 +30,12 @@ local function open_float(lines)
   })
   current_win = win
 
+  -- Conceal the " | <url>" tail so only "repo | title" shows. The URL stays in
+  -- the buffer text, so <CR> can still extract it.
+  vim.api.nvim_set_option_value("conceallevel", 3, { win = win })
+  vim.api.nvim_set_option_value("concealcursor", "nvic", { win = win })
+  vim.fn.matchadd("Conceal", [[\s*|\s*https://\S\+]], 10, -1, { conceal = "" })
+
   -- q or <Esc> closes
   local opts = { noremap = true, silent = true, buffer = buf }
   local function close()
